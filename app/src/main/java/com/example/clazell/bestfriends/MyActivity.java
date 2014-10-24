@@ -16,36 +16,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextSwitcher;
+import android.widget.TextView;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-
-
-import android.app.Activity;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.database.Cursor;
-import android.net.Uri;
-import android.app.Fragment;
-import android.os.Bundle;
-import android.provider.ContactsContract;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.TextSwitcher;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
-
 
 public class MyActivity extends Activity {
 
@@ -85,11 +62,19 @@ public class MyActivity extends Activity {
      */
     public static class PlaceholderFragment extends Fragment {
 
-        private TextSwitcher heading;
+        //private TextSwitcher heading;
         private Button btnSearch;
         private String[] loveLetters;
         private int amountofLL;
 
+        private TextView heading;
+
+        public float numOfMatches = 0;
+        public float unMatchedWords = 0;
+        public int totalTexts = 0;
+
+        public float totalWords;
+        public float percent = 0;
         public PlaceholderFragment() {
 
 
@@ -101,6 +86,17 @@ public class MyActivity extends Activity {
             View rootView = inflater.inflate(R.layout.fragment_my, container, false);
 
             getMatches(sortFriendsWords("+61406677335"),sortUserWords());
+
+            TextView heading = (TextView) rootView.findViewById(R.id.tb);
+
+            totalWords = numOfMatches + unMatchedWords;
+            Log.i("",""+totalWords);
+            Log.i("",""+numOfMatches);
+            Log.i("",""+unMatchedWords);
+            Log.i("",""+numOfMatches/totalWords);
+            percent = numOfMatches/totalWords * 100;
+
+            heading.setText("match "+numOfMatches + " no match " + unMatchedWords + " Percent: "+percent +"%");
             return rootView;
         }
 
@@ -114,32 +110,6 @@ public class MyActivity extends Activity {
             return topwords;
         }
 
-        private void getFriendsSMS() {
-            Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(Uri.parse("content://sms/inbox"), null, null, null, null);
-
-
-            String[] friendsSMSbody = new String[cursor.getCount()];
-            String[] usersSMSbody = new String[cursor.getCount()];
-
-            String[] number = new String[cursor.getCount()];
-
-            int amountOfSMS = 0;
-
-            if (cursor.moveToFirst()) {
-                for (int i = 0; i < cursor.getCount(); i++) {
-                    friendsSMSbody[i] = cursor.getString(cursor.getColumnIndexOrThrow("body")).toString();
-
-                    number[i] = cursor.getString(cursor.getColumnIndexOrThrow("address"));
-
-                    amountOfSMS++;
-                    cursor.moveToNext();
-                }
-            }
-            cursor.close();
-
-
-        }
-
         public void getMatches(Map<String, Word> fm, Map<String, Word> um){
 
             Map<String, Word> countMap = new HashMap<String, Word>();
@@ -150,19 +120,17 @@ public class MyActivity extends Activity {
                 Word wordObj = um.get(entry.getKey());
 
                 if (wordObj != null) {
-//                        Word wordObj2 = countMap.get(wordObj);
-//                        if (wordObj2 != null) {
-//                            wordObj.count++;
-//                        }else
-                    {
+
                         wordObj = new Word();
                         wordObj.word = entry.getKey();
                         wordObj.count = 1;
                         countMap.put(entry.getKey(), wordObj);
-                    }
+
+                }else{
+                    unMatchedWords++;
                 }
             }
-
+            numOfMatches = countMap.size();
             Iterator it = countMap.entrySet().iterator();
             for (Map.Entry<String, Word> entry : countMap.entrySet()) {
                 Log.i("HEY ", "Key : " + entry.getKey() + " Value : "
@@ -182,7 +150,6 @@ public class MyActivity extends Activity {
                 for (int i = 0; i < cursor.getCount(); i++) {
                     line = cursor.getString(cursor.getColumnIndexOrThrow("body")).toString();
                     matchCheck = cursor.getString(cursor.getColumnIndexOrThrow("address"));
-                    // Log.i("check ", match + " " + matchCheck + " num "+cursor.getString(cursor.getColumnIndexOrThrow("address")));
                     if (match.equalsIgnoreCase(matchCheck)) {
 
                         String[] words = line.split("\\s+");//"[^A-ZÃ…Ã„Ã–a-zÃ¥Ã¤Ã¶]+"
@@ -205,20 +172,14 @@ public class MyActivity extends Activity {
                     cursor.moveToNext();
                 }
             }
-//            Iterator iterator = countMap.entrySet().iterator();
-//            for (Map.Entry<String, Word> entry : countMap.entrySet()) {
-//                Log.i("HEY ","Key : " + entry.getKey() + " Value : "
-//                        + countMap.get(entry.getKey()).count);
-//            }
             cursor.close();
 
-            SortedSet<Word> sortedWords = new TreeSet<Word>(countMap.values());
-            int i = 0;
-            for (Word word : sortedWords) {
-                // Log.i("",""  +word.count +" "+ word.word);
-                i++;
-            }
-            //Log.i("TOTAL",""  +countMap.size());
+//            SortedSet<Word> sortedWords = new TreeSet<Word>(countMap.values());
+//            int i = 0;
+//            for (Word word : sortedWords) {
+//                // Log.i("",""  +word.count +" "+ word.word);
+//                i++;
+//            }
 
             return countMap;
         }
