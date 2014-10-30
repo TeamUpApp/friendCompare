@@ -2,12 +2,10 @@ package com.example.clazell.bestfriends;
 
 import android.app.Activity;
 import android.app.Fragment;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -15,11 +13,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.TextSwitcher;
+import android.widget.ListView;
 import android.widget.TextView;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -36,7 +37,6 @@ public class MyActivity extends Activity {
                     .commit();
         }
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -75,8 +75,9 @@ public class MyActivity extends Activity {
 
         public float totalWords;
         public float percent = 0;
-        public PlaceholderFragment() {
+        private ListView list;
 
+        public PlaceholderFragment() {
 
         }
 
@@ -84,23 +85,25 @@ public class MyActivity extends Activity {
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_my, container, false);
+            list = (ListView) rootView.findViewById(R.id.listView);
+            List<Contact> topContacts = ContactUtils.readMessages(getActivity());
+            for (Contact c : topContacts) {
+                c.setPercent(getPercentageMatch(sortFriendsWords(c.getNumber()), sortUserWords()));
+            }
+            Collections.sort(topContacts, new Comparator<Contact>() {
+                public int compare(Contact c1, Contact c2) {
+                    return c1.getPercent() > c2.getPercent() ? -1
+                            : c1.getPercent() < c2.getPercent() ? 1 : 0;
+                }
+            });
 
-            getMatches(sortFriendsWords("+61406677335"),sortUserWords());
-
-            TextView heading = (TextView) rootView.findViewById(R.id.tb);
-
-            totalWords = numOfMatches + unMatchedWords;
-            Log.i("",""+totalWords);
-            Log.i("",""+numOfMatches);
-            Log.i("",""+unMatchedWords);
-            Log.i("",""+numOfMatches/totalWords);
-            percent = numOfMatches/totalWords * 100;
-
-            heading.setText("match "+numOfMatches + " no match " + unMatchedWords + " Percent: "+percent +"%");
+            MessageListAdapter adapter = new MessageListAdapter(getActivity(), topContacts);
+            list.setAdapter(adapter);
+            //heading.setText("match " + numOfMatches + " no match " + unMatchedWords + " Percent: " + percent + "%");
             return rootView;
         }
 
-        private String[] getTopWords(Context con){
+        private String[] getTopWords(Context con) {
 
             String[] topwords = new String[25];
 
@@ -110,7 +113,7 @@ public class MyActivity extends Activity {
             return topwords;
         }
 
-        public void getMatches(Map<String, Word> fm, Map<String, Word> um){
+        public float getPercentageMatch(Map<String, Word> fm, Map<String, Word> um) {
 
             Map<String, Word> countMap = new HashMap<String, Word>();
 
@@ -121,12 +124,12 @@ public class MyActivity extends Activity {
 
                 if (wordObj != null) {
 
-                        wordObj = new Word();
-                        wordObj.word = entry.getKey();
-                        wordObj.count = 1;
-                        countMap.put(entry.getKey(), wordObj);
+                    wordObj = new Word();
+                    wordObj.word = entry.getKey();
+                    wordObj.count = 1;
+                    countMap.put(entry.getKey(), wordObj);
 
-                }else{
+                } else {
                     unMatchedWords++;
                 }
             }
@@ -136,13 +139,20 @@ public class MyActivity extends Activity {
                 Log.i("HEY ", "Key : " + entry.getKey() + " Value : "
                         + countMap.get(entry.getKey()).count);
             }
+            totalWords = numOfMatches + unMatchedWords;
+            Log.i("", "" + totalWords);
+            Log.i("", "" + numOfMatches);
+            Log.i("", "" + unMatchedWords);
+            Log.i("", "" + numOfMatches / totalWords);
+            return numOfMatches / totalWords * 100;
+
         }
 
-        public  Map<String, Word> sortFriendsWords(String match){
+        public Map<String, Word> sortFriendsWords(String match) {
 
             Map<String, Word> countMap = new HashMap<String, Word>();
             Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(Uri.parse("content://sms/inbox"), null, null, null, null);
-            Log.i("cc "," " + cursor.getCount());
+            Log.i("cc ", " " + cursor.getCount());
             String line;
             String matchCheck;
             if (cursor.moveToFirst()) {
@@ -184,7 +194,7 @@ public class MyActivity extends Activity {
             return countMap;
         }
 
-        public  Map<String, Word> sortUserWords(){
+        public Map<String, Word> sortUserWords() {
             Map<String, Word> countMap = new HashMap<String, Word>();
             Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(Uri.parse("content://sms/sent"), null, null, null, null);
 
@@ -216,8 +226,6 @@ public class MyActivity extends Activity {
             cursor.close();
 
 
-
-
             SortedSet<Word> sortedWords = new TreeSet<Word>(countMap.values());
             int i = 0;
             for (Word word : sortedWords) {
@@ -228,51 +236,8 @@ public class MyActivity extends Activity {
             // Log.i("TOTAL",""  +sortedWords.size());
             return countMap;
         }
-
-
-        public static String getContactName(Context context, String phoneNumber) {
-            ContentResolver cr = context.getContentResolver();
-            Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
-            Cursor cursor = cr.query(uri, new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null);
-            if (cursor == null) {
-                return null;
-            }
-            String contactName = null;
-            if(cursor.moveToFirst()) {
-                contactName = cursor.getString(cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME));
-            }
-
-            if(cursor != null && !cursor.isClosed()) {
-                cursor.close();
-            }
-
-            return contactName;
-        }
     }
 
-    public static class Word implements Comparable<Word>
-    {
-        String word;
-        int count;
-
-        @Override
-        public int hashCode()
-        {
-            return word.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            return word.equals(((Word)obj).word);
-        }
-
-        @Override
-        public int compareTo(Word b)
-        {
-            return b.count - count;
-        }
-    }
 
 }
 
